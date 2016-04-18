@@ -37,14 +37,18 @@ class QuickCache(object):
         self._full_base = os.path.join(self._temp, self._base)
 
     def clean_cache(self):
+        if not os.path.exists(self._full_base):
+            return
         shutil.rmtree(self._full_base)
 
     def clean_all_caches(self):
+        if not os.path.exists(self._temp):
+            return
         shutil.rmtree(self._temp)
 
     def get_file(self, cache_id_obj):
-        cache_id = zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()])))
-        return os.path.join(self._full_base, "{0}.tmp".format(cache_id))
+        cache_id = "{:08x}".format(zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()]))) & 0xffffffff)
+        return os.path.join(self._full_base, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:])))
 
     def get_hnd(self, cache_id_obj):
         """Gets a handle for the given cache file with exclusive access. The handle
