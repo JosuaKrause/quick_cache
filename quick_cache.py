@@ -101,9 +101,9 @@ class _CacheLock(object):
                         if isinstance(v, basestring):
                             return v
                         if isinstance(v, dict):
-                            return "{..}"
+                            return "{..{0}}".format(len(v.keys()))
                         if isinstance(v, collections.Iterable):
-                            return "[..]"
+                            return "[..{0}]".format(len(v))
                         return str(v)
 
                     desc = "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
