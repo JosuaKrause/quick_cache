@@ -10,14 +10,18 @@ However, it cannot protect cache files from being modified by other processes.
 """
 
 import os
+import sys
+import json
+import time
 import zlib
 import pickle
 import shutil
 import hashlib
 import threading
+import collections
 
 class QuickCache(object):
-    def __init__(self, base_file, temp="tmp"):
+    def __init__(self, base_file, temp="tmp", warnings=None):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
@@ -35,6 +39,7 @@ class QuickCache(object):
             self._base = hashlib.sha1(f.read()).hexdigest()
         self._temp = temp
         self._full_base = os.path.join(self._temp, self._base)
+        self._warnings = warnings
 
     def clean_cache(self):
         if not os.path.exists(self._full_base):
@@ -60,17 +65,19 @@ class QuickCache(object):
                 while not self._own.acquire(True):
                     pass
                 if cache_file not in self._locks:
-                    self._locks[cache_file] = _CacheLock(cache_file, cache_id_obj)
+                    self._locks[cache_file] = _CacheLock(cache_file, cache_id_obj, self._warnings)
             finally:
                 self._own.release()
         return self._locks[cache_file]
 
 class _CacheLock(object):
-    def __init__(self, cache_file, cache_id_obj):
+    def __init__(self, cache_file, cache_id_obj, warnings):
         """Creates a handle for the given cache file."""
         self._cache_file = cache_file
         self._cache_id_obj = cache_id_obj
         self._lock = threading.RLock()
+        self._warnings = warnings
+        self._start_time = None
 
     def name(self):
         """The cache file."""
@@ -83,9 +90,24 @@ class _CacheLock(object):
     def read(self):
         """Reads the cache file as pickle file."""
         with open(self._cache_file, 'rb') as f_in:
-            (cache_id_obj, res) = pickle.load(f_in)
+            (cache_id_obj, elapsed_time, res) = pickle.load(f_in)
             if cache_id_obj != self._cache_id_obj:
                 raise ValueError("cache mismatch")
+            if self._start_time is not None and elapsed_time is not None:
+                current_time = time.time() - self._start_time
+                if self._warnings is not None and elapsed_time < current_time:
+
+                    def convert(v):
+                        if isinstance(v, basestring):
+                            return v
+                        if isinstance(v, dict):
+                            return "{..}"
+                        if isinstance(v, collections.Iterable):
+                            return "[..]"
+                        return str(v)
+
+                    desc = "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
+                    self._warnings("reading cache takes longer than computing! {0}: {1} < {2}".format(desc, elapsed_time, current_time))
             return res
 
     def write(self, obj):
@@ -95,13 +117,15 @@ class _CacheLock(object):
         if not os.path.exists(os.path.dirname(self._cache_file)):
             os.makedirs(os.path.dirname(self._cache_file))
         with open(self._cache_file, 'w') as f_out:
-            pickle.dump((self._cache_id_obj, obj), f_out)
+            pickle.dump((self._cache_id_obj, (time.time() - self._start_time) if self._start_time is not None else None, obj), f_out)
 
     def __enter__(self):
         while not self._lock.acquire(True):
             pass
+        self._start_time = time.time()
         return self
 
     def __exit__(self, _type, _value, _traceback):
         self._lock.release()
+        self._start_time = None
         return False
