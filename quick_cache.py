@@ -14,7 +14,7 @@ import sys
 import json
 import time
 import zlib
-import pickle
+import cPickle
 import shutil
 import hashlib
 import threading
@@ -90,7 +90,7 @@ class _CacheLock(object):
     def read(self):
         """Reads the cache file as pickle file."""
         with open(self._cache_file, 'rb') as f_in:
-            (cache_id_obj, elapsed_time, res) = pickle.load(f_in)
+            (cache_id_obj, elapsed_time, res) = cPickle.load(f_in)
             if cache_id_obj != self._cache_id_obj:
                 raise ValueError("cache mismatch")
             if self._start_time is not None and elapsed_time is not None:
@@ -112,12 +112,12 @@ class _CacheLock(object):
 
     def write(self, obj):
         """Writes the given object to the cache file as pickle. The cache file with
-             its path is created if needed.
+           its path is created if needed.
         """
         if not os.path.exists(os.path.dirname(self._cache_file)):
             os.makedirs(os.path.dirname(self._cache_file))
-        with open(self._cache_file, 'w') as f_out:
-            pickle.dump((self._cache_id_obj, (time.time() - self._start_time) if self._start_time is not None else None, obj), f_out)
+        with open(self._cache_file, 'wb') as f_out:
+            cPickle.dump((self._cache_id_obj, (time.time() - self._start_time) if self._start_time is not None else None, obj), f_out, -1)
 
     def __enter__(self):
         while not self._lock.acquire(True):
