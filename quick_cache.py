@@ -21,24 +21,27 @@ import threading
 import collections
 
 class QuickCache(object):
-    def __init__(self, base_file, temp="tmp", warnings=None):
+    def __init__(self, base_file=None, temp="tmp", warnings=None):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
         Parameters
         ----------
-        base_file : filename
-            The data source file the caching is based on.
+        base_file : filename (optional; default=None)
+            The data source file the caching is based on or None for a general cache.
 
         temp : folder (optional; default="tmp")
             The folder to store the cache files.
         """
         self._own = threading.RLock()
         self._locks = {}
-        with open(base_file, 'rb') as f:
-            self._base = hashlib.sha1(f.read()).hexdigest()
         self._temp = temp
-        self._full_base = os.path.join(self._temp, self._base)
+        if base_file is not None:
+            with open(base_file, 'rb') as f:
+                base = hashlib.sha1(f.read()).hexdigest()
+            self._full_base = os.path.join(self._temp, base)
+        else:
+            self._full_base = self._temp
         self._warnings = warnings
 
     def clean_cache(self):
