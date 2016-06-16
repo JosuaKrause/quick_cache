@@ -35,3 +35,18 @@ with cache.get_hnd({
 The cache object used for creating the handle uniquely defines
 the task. The object should contain all parameters of the task
 and the task computation itself should be deterministic.
+
+You can add *quick_cache* to your git project via submodules.
+```bash
+git submodule add https://github.com/JosuaKrause/quick_cache.git lib/quick_cache/
+# when checking out the project at a different location do
+git submodule update --init --recursive
+```
+
+and import it in python via:
+```python
+import sys
+
+sys.path.append('lib')
+from quick_cache.quick_cache import QuickCache
+```
