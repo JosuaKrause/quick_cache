@@ -17,7 +17,7 @@ warnings are emitted when the actual computation is faster than
 reading the results from the cache).
 
 The caching functionality can then be used via:
-```
+```python
 with cache.get_hnd({
     # object identifying the task to cache
     # can be any combination of keys and values
