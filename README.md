@@ -39,7 +39,7 @@ and the task computation itself should be deterministic.
 You can add *quick_cache* to your git project via submodules.
 ```bash
 git submodule add https://github.com/JosuaKrause/quick_cache.git lib/quick_cache/
-# when checking out the project at a different location do
+# when checking out the project later at a different location do
 git submodule update --init --recursive
 ```
 
