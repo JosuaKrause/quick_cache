@@ -161,7 +161,6 @@ class _CacheLock(object):
             if self._warnings is not None:
                 self._warnings("removing old cache file: '{0}'", oldest_fp)
             os.remove(oldest_fp)
-        self._warnings('done')
 
         if not os.path.exists(os.path.dirname(self._cache_file)):
             os.makedirs(os.path.dirname(self._cache_file))
