@@ -6,7 +6,7 @@ Create the cache object as follows:
 def msg(message, *args, **kwargs):
     print(message.format(*args, **kwargs), file=sys.stderr)
 
-cache = QuickCache(base_file, warnings=msg)
+cache = QuickCache(base_file, quota=500, warnings=msg)
 ```
 where `base_file` is an optional file whose *content* invalidates
 the cache (ie., when the content of the file changes the cache is invalidated;
@@ -14,7 +14,8 @@ for large files it might be desirable to use the *mtime* in the cache object bel
 and `msg` is an optional formatting function that prints warnings
 (by default it's `None` which doesn't print anything;
 warnings are emitted when the actual computation is faster than
-reading the results from the cache).
+reading the results from the cache or if other exceptional situations occur).
+`quota` is an optional maximal cache size in MB.
 
 The caching functionality can then be used via:
 ```python
