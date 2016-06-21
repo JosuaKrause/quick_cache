@@ -45,7 +45,7 @@ class QuickCache(object):
         self._own = threading.RLock()
         self._locks = {}
         self._temp = temp
-        self._quota = float(quota)
+        self._quota = None if quota is None else float(quota)
         if base_file is not None:
             with open(base_file, 'rb') as f:
                 base = hashlib.sha1(f.read()).hexdigest()
@@ -144,7 +144,7 @@ class _CacheLock(object):
                     total_size += os.path.getsize(fp)
             return total_size / 1024.0 / 1024.0
 
-        while get_size(self._base) + own_size > self._quota:
+        while self._quota is not None and get_size(self._base) + own_size > self._quota:
             oldest_fp = None
             oldest_time = None
             for dirpath, _dirnames, filenames in os.walk(self._base):
