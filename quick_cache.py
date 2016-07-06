@@ -134,7 +134,7 @@ class _CacheLock(object):
         if self._quota is not None and own_size > self._quota:
             if self._warnings is not None:
                 self._warnings("single file exceeds quota: {0}MB > {1}MB", own_size, self._quota)
-            return # file exceeds quota
+            return obj # file exceeds quota
 
         def get_size(start_path):
             total_size = 0
@@ -166,6 +166,7 @@ class _CacheLock(object):
             os.makedirs(os.path.dirname(self._cache_file))
         with open(self._cache_file, 'wb') as f_out:
             f_out.write(out)
+        return obj
 
     def __enter__(self):
         while not self._lock.acquire(True):
