@@ -157,7 +157,7 @@ class _CacheLock(object):
             if oldest_fp is None:
                 if self._warnings is not None:
                     self._warnings("cannot free enough space for quota ({0}MB > {1}MB)!", get_size(self._base) + own_size, self._quota)
-                return # cannot free enough space
+                return obj # cannot free enough space
             if self._warnings is not None:
                 self._warnings("removing old cache file: '{0}'", oldest_fp)
             os.remove(oldest_fp)
