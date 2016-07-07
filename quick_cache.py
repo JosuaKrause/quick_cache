@@ -164,8 +164,15 @@ class _CacheLock(object):
 
         if not os.path.exists(os.path.dirname(self._cache_file)):
             os.makedirs(os.path.dirname(self._cache_file))
-        with open(self._cache_file, 'wb') as f_out:
-            f_out.write(out)
+        try:
+            with open(self._cache_file, 'wb') as f_out:
+                f_out.write(out)
+        except:
+            # better remove everything written if an exception
+            # occurs during I/O -- we don't want partial files
+            if os.path.exists(self._cache_file):
+                os.remove(self._cache_file)
+            raise
         return obj
 
     def __enter__(self):
