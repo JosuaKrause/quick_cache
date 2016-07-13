@@ -22,7 +22,7 @@ import threading
 import collections
 
 class QuickCache(object):
-    def __init__(self, base_file=None, quota=None, temp="tmp", warnings=None):
+    def __init__(self, base_file=None, base_string=None, quota=None, temp="tmp", warnings=None):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
@@ -30,10 +30,16 @@ class QuickCache(object):
         ----------
         base_file : filename (optional; default=None)
             The data source file the caching is based on or None for a general cache.
+            Only one of base_file or base_string can be non-None.
+
+        base_string : string (optional; default=None)
+            The string the caching is based on (if the string changes so does the
+            cache) or None for a general cache.
+            Only one of base_file or base_string can be non-None.
 
         quota : size (optional; default=None)
             The maximum cache size in MB. Longest untouched files are removed first.
-            Files larger than quota are not written. Quota is base file specific.
+            Files larger than quota are not written. Quota is base specific.
 
         temp : folder (optional; default="tmp")
             The folder to store the cache files.
@@ -47,8 +53,13 @@ class QuickCache(object):
         self._temp = temp
         self._quota = None if quota is None else float(quota)
         if base_file is not None:
+            if base_string is not None:
+                raise ValueError("of base_file and base_string only one can be non-None: {0} {1}".format(base_file, base_string))
             with open(base_file, 'rb') as f:
                 base = hashlib.sha1(f.read()).hexdigest()
+            self._full_base = os.path.join(self._temp, base)
+        elif base_string is not None:
+            base = hashlib.sha1(base_string).hexdigest()
             self._full_base = os.path.join(self._temp, base)
         else:
             self._full_base = self._temp
