@@ -26,6 +26,17 @@ if hasattr(time, "process_time"):
 else:
     get_time = lambda: time.clock()
 
+def _write_str(id_obj, elapsed, data):
+    obj = json.dumps([ id_obj, elapsed ], sort_keys=True, allow_nan=True)
+    return str(len(obj)) + ';' + obj + data
+
+def _read_str(f_id):
+    txt = f_id.read()
+    len_ix, rest = txt.split(";", 1)
+    length = int(len_ix)
+    id_obj, elapsed = json.loads(rest[:length])
+    return id_obj, elapsed, rest[length:]
+
 methods = {
     "pickle": (
         lambda id_obj, elapsed, data: cPickle.dumps((id_obj, elapsed, data), -1),
@@ -35,6 +46,7 @@ methods = {
         lambda id_obj, elapsed, data: json.dumps([ id_obj, elapsed, data ], sort_keys=True, allow_nan=True),
         lambda f_id: tuple(json.load(f_id)),
     ),
+    "string": (_write_str, _read_str),
 }
 class QuickCache(object):
     def __init__(self, base_file=None, base_string=None, quota=None, temp="tmp", warnings=None, method="pickle"):
@@ -68,6 +80,7 @@ class QuickCache(object):
             be convertible without loss. Available methods are:
                 "pickle",
                 "json",
+                "string",
         """
         self._own = threading.RLock()
         self._method = methods.get(method, None)
