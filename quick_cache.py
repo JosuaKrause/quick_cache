@@ -21,8 +21,23 @@ import hashlib
 import threading
 import collections
 
+if hasattr(time, "process_time"):
+    get_time = lambda: time.process_time()
+else:
+    get_time = lambda: time.clock()
+
+methods = {
+    "pickle": (
+        lambda id_obj, elapsed, data: cPickle.dumps((id_obj, elapsed, data), -1),
+        lambda f_id: cPickle.load(f_id),
+    ),
+    "json": (
+        lambda id_obj, elapsed, data: json.dumps([ id_obj, elapsed, data ], sort_keys=True, allow_nan=True),
+        lambda f_id: tuple(json.load(f_id)),
+    ),
+}
 class QuickCache(object):
-    def __init__(self, base_file=None, base_string=None, quota=None, temp="tmp", warnings=None):
+    def __init__(self, base_file=None, base_string=None, quota=None, temp="tmp", warnings=None, method="pickle"):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
@@ -47,8 +62,17 @@ class QuickCache(object):
         warnings : function (optional; default=None)
             Used to print warnings. Arguments are formatting string and then
             *args and **kwargs.
+
+        method : string (optional; default="pickle")
+            The method to read/write data to the disk. The stored content must
+            be convertible without loss. Available methods are:
+                "pickle",
+                "json",
         """
         self._own = threading.RLock()
+        self._method = methods.get(method, None)
+        if self._method is None:
+            raise ValueError("unknown method: '{0}'".format(method))
         self._locks = {}
         self._temp = temp
         self._quota = None if quota is None else float(quota)
@@ -89,13 +113,13 @@ class QuickCache(object):
                 while not self._own.acquire(True):
                     pass
                 if cache_file not in self._locks:
-                    self._locks[cache_file] = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings)
+                    self._locks[cache_file] = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings, self._method)
             finally:
                 self._own.release()
         return self._locks[cache_file]
 
 class _CacheLock(object):
-    def __init__(self, cache_file, cache_id_obj, base, quota, warnings):
+    def __init__(self, cache_file, cache_id_obj, base, quota, warnings, method):
         """Creates a handle for the given cache file."""
         self._cache_file = cache_file
         self._cache_id_obj = cache_id_obj
@@ -104,6 +128,7 @@ class _CacheLock(object):
         self._quota = quota
         self._warnings = warnings
         self._start_time = None
+        self._write, self._read = method
 
     def name(self):
         """The cache file."""
@@ -115,32 +140,39 @@ class _CacheLock(object):
 
     def read(self):
         """Reads the cache file as pickle file."""
+
+        def convert(v):
+            if isinstance(v, basestring):
+                return v
+            if isinstance(v, dict):
+                return "{..{0}}".format(len(v.keys()))
+            if isinstance(v, collections.Iterable):
+                return "[..{0}]".format(len(v))
+            return str(v)
+
+        def warn(msg, elapsed_time, current_time):
+            desc = "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
+            self._warnings("{0} {1}: {2}s < {3}s", msg, desc, elapsed_time, current_time)
+
+        file_time = get_time()
         with open(self._cache_file, 'rb') as f_in:
-            (cache_id_obj, elapsed_time, res) = cPickle.load(f_in)
+            (cache_id_obj, elapsed_time, res) = self._read(f_in)
             if cache_id_obj != self._cache_id_obj:
                 raise ValueError("cache mismatch")
-            if self._start_time is not None and elapsed_time is not None:
-                current_time = time.time() - self._start_time
+            real_time = get_time() - file_time
+            if self._warnings is not None and elapsed_time is not None and real_time > elapsed_time:
+                warn("reading cache from disk takes longer than computing!", elapsed_time, real_time)
+            elif self._start_time is not None and elapsed_time is not None:
+                current_time = get_time() - self._start_time
                 if self._warnings is not None and elapsed_time < current_time:
-
-                    def convert(v):
-                        if isinstance(v, basestring):
-                            return v
-                        if isinstance(v, dict):
-                            return "{..{0}}".format(len(v.keys()))
-                        if isinstance(v, collections.Iterable):
-                            return "[..{0}]".format(len(v))
-                        return str(v)
-
-                    desc = "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
-                    self._warnings("reading cache takes longer than computing! {0}: {1} < {2}", desc, elapsed_time, current_time)
+                    warn("reading cache takes longer than computing!", elapsed_time, current_time)
             return res
 
     def write(self, obj):
         """Writes the given object to the cache file as pickle. The cache file with
            its path is created if needed.
         """
-        out = cPickle.dumps((self._cache_id_obj, (time.time() - self._start_time) if self._start_time is not None else None, obj), -1)
+        out = self._write(self._cache_id_obj, (get_time() - self._start_time) if self._start_time is not None else None, obj)
         own_size = len(out) / 1024.0 / 1024.0
         if self._quota is not None and own_size > self._quota:
             if self._warnings is not None:
@@ -189,7 +221,7 @@ class _CacheLock(object):
     def __enter__(self):
         while not self._lock.acquire(True):
             pass
-        self._start_time = time.time()
+        self._start_time = get_time()
         return self
 
     def __exit__(self, _type, _value, _traceback):
