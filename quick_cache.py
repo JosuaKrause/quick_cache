@@ -81,6 +81,12 @@ class QuickCache(object):
                 "pickle",
                 "json",
                 "string",
+
+        Attributes
+        ----------
+        lock_index_size : size
+            Target size of the lock index. The size can not be guaranteed. Default
+            value is 100.
         """
         self._own = threading.RLock()
         self._method = methods.get(method, None)
@@ -101,20 +107,32 @@ class QuickCache(object):
         else:
             self._full_base = self._temp
         self._warnings = warnings
+        self.lock_index_size = 100
 
     def clean_cache(self):
+        """Cleans the cache of this cache object."""
         if not os.path.exists(self._full_base):
             return
         shutil.rmtree(self._full_base)
 
     def clean_all_caches(self):
+        """Clean all caches in the `temp` path."""
         if not os.path.exists(self._temp):
             return
         shutil.rmtree(self._temp)
 
     def get_file(self, cache_id_obj):
+        """Returns the file path for the given cache object."""
         cache_id = "{:08x}".format(zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()]))) & 0xffffffff)
         return os.path.join(self._full_base, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:])))
+
+    def try_enforce_index_size(self, save):
+        """Tries to remove finished locks from the index."""
+        if len(self._locks) > self.lock_index_size:
+            for k in self._locks.keys():
+                if save != k and self._locks[k].is_done():
+                    del self._locks[k]
+
 
     def get_hnd(self, cache_id_obj):
         """Gets a handle for the given cache file with exclusive access. The handle
@@ -126,10 +144,19 @@ class QuickCache(object):
                 while not self._own.acquire(True):
                     pass
                 if cache_file not in self._locks:
-                    self._locks[cache_file] = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings, self._method)
+                    res = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings, self._method)
+                    self._locks[cache_file] = res
+                else:
+                    res = None
             finally:
                 self._own.release()
-        return self._locks[cache_file]
+        else:
+            res = None
+        if res is None:
+            res = self._locks[cache_file]
+            res.ensure_cache_id(cache_id_obj)
+        self.try_enforce_index_size(cache_file)
+        return res
 
 class _CacheLock(object):
     def __init__(self, cache_file, cache_id_obj, base, quota, warnings, method):
@@ -142,14 +169,27 @@ class _CacheLock(object):
         self._warnings = warnings
         self._start_time = None
         self._write, self._read = method
+        self._done = False
+
+    def ensure_cache_id(self, cache_id_obj):
+        """Ensure the integrity of the cache id object."""
+        if cache_id_obj != self._cache_id_obj:
+            raise ValueError("cache mismatch")
 
     def name(self):
         """The cache file."""
         return self._cache_file
 
+    def is_done(self):
+        """Conservatively determine whether this cache is ready and can safely be
+           removed from the lock index.
+        """
+        return self._done
+
     def has(self):
         """Whether the cache file exists in the file system."""
-        return os.path.exists(self._cache_file)
+        self._done = os.path.exists(self._cache_file)
+        return self._done
 
     def read(self):
         """Reads the cache file as pickle file."""
@@ -170,8 +210,7 @@ class _CacheLock(object):
         file_time = get_time()
         with open(self._cache_file, 'rb') as f_in:
             (cache_id_obj, elapsed_time, res) = self._read(f_in)
-            if cache_id_obj != self._cache_id_obj:
-                raise ValueError("cache mismatch")
+            self.ensure_cache_id(cache_id_obj)
             real_time = get_time() - file_time
             if self._warnings is not None and elapsed_time is not None and real_time > elapsed_time:
                 warn("reading cache from disk takes longer than computing!", elapsed_time, real_time)
@@ -229,6 +268,7 @@ class _CacheLock(object):
             if os.path.exists(self._cache_file):
                 os.remove(self._cache_file)
             raise
+        self._done = True
         return obj
 
     def __enter__(self):
