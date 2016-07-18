@@ -129,9 +129,12 @@ class QuickCache(object):
     def try_enforce_index_size(self, save):
         """Tries to remove finished locks from the index."""
         if len(self._locks) > self.lock_index_size:
-            for k in self._locks.keys():
-                if save != k and self._locks[k].is_done():
-                    del self._locks[k]
+            for (k, v) in self._locks.items():
+                if save != k and v.is_done():
+                    try:
+                        del self._locks[k]
+                    except KeyError:
+                        pass
 
 
     def get_hnd(self, cache_id_obj):
