@@ -126,20 +126,36 @@ class QuickCache(object):
         cache_id = "{:08x}".format(zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()]))) & 0xffffffff)
         return os.path.join(self._full_base, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:])))
 
+    def _remove_lock(self, k):
+        try:
+            del self._locks[k]
+        except KeyError:
+            pass
+
     def try_enforce_index_size(self, save):
         """Tries to remove finished locks from the index."""
         if len(self._locks) > self.lock_index_size:
             for (k, v) in self._locks.items():
                 if save != k and v.is_done():
-                    try:
-                        del self._locks[k]
-                    except KeyError:
-                        pass
+                    self._remove_lock(k)
 
 
-    def get_hnd(self, cache_id_obj):
+    def get_hnd(self, cache_id_obj, method=None):
         """Gets a handle for the given cache file with exclusive access. The handle
            is meant to be used in a resource block.
+
+        Parameters
+        ----------
+        cache_id_obj : object
+            An object uniquely identifying the cached resource. Note that some
+            methods require the cache id object to be json serializable. The
+            string representation of each element, however, has to reflect its
+            content in a lossless way.
+
+        method : string (optional; default=None)
+            Defines the method used to encode the cached content. If None the
+            default method of this cache is used. The method must be consistent
+            between multiple accesses of the same cache resource.
         """
         cache_file = self.get_file(cache_id_obj)
         if cache_file not in self._locks:
@@ -147,7 +163,10 @@ class QuickCache(object):
                 while not self._own.acquire(True):
                     pass
                 if cache_file not in self._locks:
-                    res = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings, self._method)
+                    m = self._method if method is None else methods.get(method, None)
+                    if m is None:
+                        raise ValueError("unknown method: '{0}'".format(method))
+                    res = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._warnings, m)
                     self._locks[cache_file] = res
                 else:
                     res = None
