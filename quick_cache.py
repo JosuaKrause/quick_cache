@@ -203,7 +203,7 @@ class _CacheLock(object):
     def ensure_cache_id(self, cache_id_obj):
         """Ensure the integrity of the cache id object."""
         if cache_id_obj != self._cache_id_obj:
-            raise ValueError("cache mismatch")
+            raise ValueError("cache mismatch {0} != {1}".format(cache_id_obj, self._cache_id_obj))
 
     def name(self):
         """The cache file."""
