@@ -109,22 +109,29 @@ class QuickCache(object):
         self._warnings = warnings
         self.lock_index_size = 100
 
-    def clean_cache(self):
+    def clean_cache(self, section=None):
         """Cleans the cache of this cache object."""
+        section = "default" if section is None else section
+        if "/" in section:
+            raise ValueError("invalid section '{0}'".format(section))
+        path = os.path.join(self._full_base, section) if section is not None else self._full_base
+        if not os.path.exists(path):
+            return
+        shutil.rmtree(path)
+
+    def list_sections(self):
+        """List all sections."""
         if not os.path.exists(self._full_base):
-            return
-        shutil.rmtree(self._full_base)
+            return []
+        return [ name for name in os.listdir(self._full_base) if os.path.isdir(os.path.join(self._full_base, name)) ]
 
-    def clean_all_caches(self):
-        """Clean all caches in the `temp` path."""
-        if not os.path.exists(self._temp):
-            return
-        shutil.rmtree(self._temp)
-
-    def get_file(self, cache_id_obj):
+    def get_file(self, cache_id_obj, section=None):
         """Returns the file path for the given cache object."""
+        section = "default" if section is None else section
+        if "/" in section:
+            raise ValueError("invalid section '{0}'".format(section))
         cache_id = "{:08x}".format(zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()]))) & 0xffffffff)
-        return os.path.join(self._full_base, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:])))
+        return os.path.join(self._full_base, os.path.join(section, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:]))))
 
     def _remove_lock(self, k):
         try:
@@ -140,7 +147,7 @@ class QuickCache(object):
                     self._remove_lock(k)
 
 
-    def get_hnd(self, cache_id_obj, method=None):
+    def get_hnd(self, cache_id_obj, section=None, method=None):
         """Gets a handle for the given cache file with exclusive access. The handle
            is meant to be used in a resource block.
 
@@ -157,7 +164,7 @@ class QuickCache(object):
             default method of this cache is used. The method must be consistent
             between multiple accesses of the same cache resource.
         """
-        cache_file = self.get_file(cache_id_obj)
+        cache_file = self.get_file(cache_id_obj, section)
         if cache_file not in self._locks:
             try:
                 while not self._own.acquire(True):
