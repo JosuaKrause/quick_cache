@@ -93,7 +93,7 @@ class QuickCache(object):
             Target size of the lock index. The size can not be guaranteed. Default
             value is 100.
 
-        verbose : bool (default=True)
+        verbose : bool (default=False)
             Whether to log non warning messages.
         """
         self._own = threading.RLock()
@@ -120,7 +120,7 @@ class QuickCache(object):
             pass
 
         self._warnings = warnings if warnings is not None else no_msg
-        self.verbose = True
+        self.verbose = False
         self.lock_index_size = 100
         atexit.register(lambda: self.remove_all_locks())
 
@@ -268,8 +268,7 @@ class _CacheLock(object):
         self._done = os.path.exists(self._cache_file)
         return self._done or self._out is not None
 
-    def read(self):
-        """Reads the cache file as pickle file."""
+    def _cache_id_desc(self):
 
         def convert(v):
             if isinstance(v, basestring):
@@ -280,13 +279,20 @@ class _CacheLock(object):
                 return "[..{0}]".format(len(v))
             return str(v)
 
+        return "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
+
+    def read(self):
+        """Reads the cache file as pickle file."""
+
         def warn(msg, elapsed_time, current_time):
-            desc = "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
+            desc = self._cache_id_desc()
             self._warnings("{0} {1}: {2}s < {3}s", msg, desc, elapsed_time, current_time)
 
         file_time = get_time()
         out = self._out
         if out is None:
+            if self.verbose:
+                self._warnings("reading {0} from disk", self._cache_id_desc())
             with open(self._cache_file, 'rb') as f_in:
                 out = f_in.read()
                 self._out = out
@@ -306,6 +312,8 @@ class _CacheLock(object):
         """Writes the given object to the cache file as pickle. The cache file with
            its path is created if needed.
         """
+        if self.verbose:
+            self._warnings("cache miss for {0}", self._cache_id_desc())
         out = self._write(self._cache_id_obj, (get_time() - self._start_time) if self._start_time is not None else None, obj)
         self._out = out
         if self.get_size() > self._ram_quota:
@@ -328,6 +336,8 @@ class _CacheLock(object):
         if os.path.exists(cache_file):
             self._done = True
             self._out = None
+            if self.verbose:
+                self._warnings("free memory of '{0}'", self._cache_id_desc())
             return
         own_size = len(out) / 1024.0 / 1024.0
         quota = self._quota
@@ -364,7 +374,7 @@ class _CacheLock(object):
             os.makedirs(os.path.dirname(cache_file))
         try:
             if self.verbose:
-                self._warnings("writing cache to disk: '{0}'", cache_file)
+                self._warnings("writing cache to disk: '{0}'", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
                 f_out.write(out)
         except:
