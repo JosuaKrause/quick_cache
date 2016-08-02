@@ -89,10 +89,6 @@ class QuickCache(object):
 
         Attributes
         ----------
-        lock_index_size : size (default=100)
-            Target size of the lock index. The size can not be guaranteed. Default
-            value is 100.
-
         verbose : bool (default=False)
             Whether to log non warning messages.
         """
@@ -121,7 +117,6 @@ class QuickCache(object):
 
         self._warnings = warnings if warnings is not None else no_msg
         self.verbose = False
-        self.lock_index_size = 100
         atexit.register(lambda: self.remove_all_locks())
 
     def clean_cache(self, section=None):
@@ -169,16 +164,6 @@ class QuickCache(object):
                 if full_size <= ram_quota:
                     break
 
-
-    def try_enforce_index_size(self, save):
-        """Tries to remove finished locks from the index."""
-        if len(self._locks) > self.lock_index_size:
-            locks = self._locks.items()
-            locks.sort(key=lambda (k, v): v.get_last_access())
-            for (k, v) in locks:
-                if save != k and v.is_done():
-                    self._remove_lock(k)
-
     def remove_all_locks(self):
         """Removes all locks and ensures their content is written to disk."""
         locks = self._locks.items()
@@ -224,7 +209,6 @@ class QuickCache(object):
             res = self._locks[cache_file]
             res.ensure_cache_id(cache_id_obj)
         self.enforce_ram_quota()
-        self.try_enforce_index_size(cache_file)
         return res
 
 class _CacheLock(object):
