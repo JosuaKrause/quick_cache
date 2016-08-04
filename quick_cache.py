@@ -300,8 +300,7 @@ class _CacheLock(object):
             self._warnings("cache miss for {0}", self._cache_id_desc())
         out = self._write(self._cache_id_obj, (get_time() - self._start_time) if self._start_time is not None else None, obj)
         self._out = out
-        if self.get_size() > self._ram_quota:
-            self.force_to_disk()
+        self.force_to_disk(self.get_size() > self._ram_quota)
         self._last_access = get_time()
         return self._read(out)[2]
 
@@ -312,16 +311,17 @@ class _CacheLock(object):
     def get_last_access(self):
         return self._last_access
 
-    def force_to_disk(self):
+    def force_to_disk(self, removeMem=True):
         out = self._out
         if out is None:
             return
         cache_file = self._cache_file
         if os.path.exists(cache_file):
             self._done = True
-            self._out = None
-            if self.verbose:
-                self._warnings("free memory of '{0}'", self._cache_id_desc())
+            if removeMem:
+                self._out = None
+                if self.verbose:
+                    self._warnings("free memory of '{0}'", self._cache_id_desc())
             return
         own_size = len(out) / 1024.0 / 1024.0
         quota = self._quota
@@ -368,7 +368,10 @@ class _CacheLock(object):
                 os.remove(cache_file)
             raise
         self._done = True
-        self._out = None
+        if removeMem:
+            self._out = None
+            if self.verbose:
+                self._warnings("free memory of '{0}'", self._cache_id_desc())
 
     def remove(self):
         self.force_to_disk()
