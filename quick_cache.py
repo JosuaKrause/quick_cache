@@ -49,7 +49,7 @@ methods = {
     "string": (_write_str, _read_str),
 }
 class QuickCache(object):
-    def __init__(self, base_file=None, base_string=None, quota=None, ram_quota=None, temp="tmp", warnings=None, method="pickle"):
+    def __init__(self, base_file=None, base_string=None, quota=None, ram_quota=0, temp="tmp", warnings=None, method="pickle"):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
@@ -68,7 +68,7 @@ class QuickCache(object):
             The maximum cache size in MB. Longest untouched files are removed first.
             Files larger than quota are not written. Quota is base specific.
 
-        ram_quota : size (optional; default=None)
+        ram_quota : size (optional; default=0)
             The maximum RAM cache size in MB. Longest unused caches are written to disk first.
             Caches larger than the RAM quota are written to disk immediately if
             disk quota allows.
