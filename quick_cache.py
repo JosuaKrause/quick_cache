@@ -16,11 +16,15 @@ import json
 import time
 import zlib
 import atexit
-import cPickle
 import shutil
 import hashlib
 import threading
 import collections
+
+try:
+    import cPickle
+except ImportError:
+    import pickle as cPickle
 
 if hasattr(time, "process_time"):
     get_time = lambda: time.process_time()
