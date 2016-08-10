@@ -125,7 +125,8 @@ class QuickCache(object):
 
     def clean_cache(self, section=None):
         """Cleans the cache of this cache object."""
-        section = "default" if section is None else section
+        self.remove_all_locks()
+        section = "./" if section is None else section
         if "/" in section:
             raise ValueError("invalid section '{0}'".format(section))
         path = os.path.join(self._full_base, section) if section is not None else self._full_base
