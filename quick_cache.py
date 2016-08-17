@@ -325,7 +325,7 @@ class _CacheLock(object):
             if removeMem:
                 self._out = None
                 if self.verbose:
-                    self._warnings("free memory of '{0}'", self._cache_id_desc())
+                    self._warnings("free memory of {0}", self._cache_id_desc())
             return
         own_size = len(out) / 1024.0 / 1024.0
         quota = self._quota
@@ -355,14 +355,14 @@ class _CacheLock(object):
             if oldest_fp is None:
                 self._warnings("cannot free enough space for quota ({0}MB > {1}MB)!", get_size(base) + own_size, quota)
                 return # cannot free enough space
-            self._warnings("removing old cache file: '{0}'", oldest_fp)
+            self._warnings("removing old cache file: {0}", oldest_fp)
             os.remove(oldest_fp)
 
         if not os.path.exists(os.path.dirname(cache_file)):
             os.makedirs(os.path.dirname(cache_file))
         try:
             if self.verbose:
-                self._warnings("writing cache to disk: '{0}'", self._cache_id_desc())
+                self._warnings("writing cache to disk: {0}", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
                 f_out.write(out)
         except:
@@ -375,7 +375,7 @@ class _CacheLock(object):
         if removeMem:
             self._out = None
             if self.verbose:
-                self._warnings("free memory of '{0}'", self._cache_id_desc())
+                self._warnings("free memory of {0}", self._cache_id_desc())
 
     def remove(self):
         self.force_to_disk()
