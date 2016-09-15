@@ -7,7 +7,7 @@ You can install *quick\_cache* via
 
 .. code:: bash
 
-    pip install --user git+https://github.com/JosuaKrause/quick_cache.git
+    pip install --user quick-cache
 
 and import it in python using:
 
