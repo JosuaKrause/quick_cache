@@ -1,6 +1,16 @@
 # quick_cache
 A quick and easy to use python caching system.
 
+You can install *quick_cache* via
+```bash
+pip install --user git+https://github.com/JosuaKrause/quick_cache.git
+```
+
+and import it in python using:
+```python
+from quick_cache import QuickCache
+```
+
 Create the cache object as follows:
 ```python
 def msg(message, *args, **kwargs):
@@ -35,13 +45,3 @@ with cache.get_hnd({
 The cache object used for creating the handle uniquely defines
 the task. The object should contain all parameters of the task
 and the task computation itself should be deterministic.
-
-You can install *quick_cache* via
-```bash
-pip install --user git+https://github.com/JosuaKrause/quick_cache.git
-```
-
-and import it in python using:
-```python
-from quick_cache import QuickCache
-```
