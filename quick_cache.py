@@ -31,7 +31,7 @@ if hasattr(time, "process_time"):
 else:
     get_time = lambda: time.clock()
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 def _write_str(id_obj, elapsed, data):
     obj = json.dumps([ id_obj, elapsed ], sort_keys=True, allow_nan=True)
@@ -146,7 +146,11 @@ class QuickCache(object):
         section = "default" if section is None else section
         if "/" in section:
             raise ValueError("invalid section '{0}'".format(section))
-        cache_id = "{:08x}".format(zlib.crc32("&".join(sorted([str(k) + "=" + str(v) for k, v in cache_id_obj.iteritems()]))) & 0xffffffff)
+        cache_id = "{:08x}".format(
+            zlib.crc32(b"&".join(sorted([
+                str(k).encode('utf8') + b"=" + str(v).encode('utf8')
+                for k, v in cache_id_obj.items()
+            ]))) & 0xffffffff)
         return os.path.join(self._full_base, os.path.join(section, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:]))))
 
     def _remove_lock(self, k):
@@ -172,8 +176,8 @@ class QuickCache(object):
 
     def remove_all_locks(self):
         """Removes all locks and ensures their content is written to disk."""
-        locks = self._locks.items()
-        locks.sort(key=lambda (k, v): v.get_last_access())
+        locks = list(self._locks.items())
+        locks.sort(key=lambda l: l[1].get_last_access())
         for (k, v) in locks:
             self._remove_lock(k)
 

@@ -18,9 +18,13 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
+# NOTE! steps to distribute:
+#$ python setup.py sdist bdist_wheel
+#$ twine upload dist/... <- here be the new version!
+
 setup(
     name='quick_cache',
-    version='0.1.0',
+    version='0.2.0',
     description='QuickCache is a quick to use and easy to set up cache implementation.',
     long_description=long_description,
     url='https://github.com/JosuaKrause/quick_cache',
@@ -33,6 +37,8 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
     ],
     keywords='cache quick easy',
     py_modules=['quick_cache'],
