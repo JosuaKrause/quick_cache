@@ -31,7 +31,7 @@ if hasattr(time, "process_time"):
 else:
     get_time = lambda: time.clock()
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 def _write_str(id_obj, elapsed, data):
     obj = json.dumps([ id_obj, elapsed ], sort_keys=True, allow_nan=True)
