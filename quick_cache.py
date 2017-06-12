@@ -113,7 +113,7 @@ class QuickCache(object):
                 base = hashlib.sha1(f.read()).hexdigest()
             self._full_base = os.path.join(self._temp, base)
         elif base_string is not None:
-            base = hashlib.sha1(base_string).hexdigest()
+            base = hashlib.sha1(base_string.encode('utf8')).hexdigest()
             self._full_base = os.path.join(self._temp, base)
         else:
             self._full_base = self._temp
