@@ -33,15 +33,18 @@ else:
 
 __version__ = "0.2.1"
 
+
 def _write_str(id_obj, elapsed, data):
     obj = json.dumps([ id_obj, elapsed ], sort_keys=True, allow_nan=True)
     return str(len(obj)) + ';' + obj + data
+
 
 def _read_str(txt):
     len_ix, rest = txt.split(";", 1)
     length = int(len_ix)
     id_obj, elapsed = json.loads(rest[:length])
     return id_obj, elapsed, rest[length:]
+
 
 methods = {
     "pickle": (
@@ -125,6 +128,7 @@ class QuickCache(object):
         self.verbose = False
         atexit.register(lambda: self.remove_all_locks())
 
+
     def clean_cache(self, section=None):
         """Cleans the cache of this cache object."""
         self.remove_all_locks()
@@ -135,11 +139,13 @@ class QuickCache(object):
             return
         shutil.rmtree(path)
 
+
     def list_sections(self):
         """List all sections."""
         if not os.path.exists(self._full_base):
             return []
         return [ name for name in os.listdir(self._full_base) if os.path.isdir(os.path.join(self._full_base, name)) ]
+
 
     def get_file(self, cache_id_obj, section=None):
         """Returns the file path for the given cache object."""
@@ -153,12 +159,14 @@ class QuickCache(object):
             ]))) & 0xffffffff)
         return os.path.join(self._full_base, os.path.join(section, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:]))))
 
+
     def _remove_lock(self, k):
         try:
             self._locks[k].remove()
             del self._locks[k]
         except KeyError:
             pass
+
 
     def enforce_ram_quota(self):
         locks = self._locks.values()
@@ -174,12 +182,14 @@ class QuickCache(object):
                 if full_size <= ram_quota:
                     break
 
+
     def remove_all_locks(self):
         """Removes all locks and ensures their content is written to disk."""
         locks = list(self._locks.items())
         locks.sort(key=lambda l: l[1].get_last_access())
         for (k, v) in locks:
             self._remove_lock(k)
+
 
     def get_hnd(self, cache_id_obj, section=None, method=None):
         """Gets a handle for the given cache file with exclusive access. The handle
@@ -221,6 +231,7 @@ class QuickCache(object):
         self.enforce_ram_quota()
         return res
 
+
 class _CacheLock(object):
     def __init__(self, cache_file, cache_id_obj, base, quota, ram_quota, warnings, verbose, method):
         """Creates a handle for the given cache file."""
@@ -238,8 +249,10 @@ class _CacheLock(object):
         self._done = False
         self.verbose = verbose
 
+
     def _get_canonical_id(self, cache_id_obj):
         return self._read(self._write(cache_id_obj, 0, ""))[0]
+
 
     def ensure_cache_id(self, cache_id_obj):
         """Ensure the integrity of the cache id object."""
@@ -247,9 +260,11 @@ class _CacheLock(object):
         if cache_id != self._cache_id_obj:
             raise ValueError("cache mismatch {0} != {1}".format(cache_id, self._cache_id_obj))
 
+
     def name(self):
         """The cache file."""
         return self._cache_file
+
 
     def is_done(self):
         """Conservatively determine whether this cache is ready and can safely be
@@ -257,10 +272,12 @@ class _CacheLock(object):
         """
         return self._done or self._out is not None
 
+
     def has(self):
         """Whether the cache file exists in the file system."""
         self._done = os.path.exists(self._cache_file)
         return self._done or self._out is not None
+
 
     def _cache_id_desc(self):
 
@@ -274,6 +291,7 @@ class _CacheLock(object):
             return str(v)
 
         return "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
+
 
     def read(self):
         """Reads the cache file as pickle file."""
@@ -302,6 +320,7 @@ class _CacheLock(object):
         self._last_access = get_time()
         return res
 
+
     def write(self, obj):
         """Writes the given object to the cache file as pickle. The cache file with
            its path is created if needed.
@@ -314,12 +333,15 @@ class _CacheLock(object):
         self._last_access = get_time()
         return self._read(out)[2]
 
+
     def get_size(self):
         out = self._out
         return len(out) / 1024.0 / 1024.0 if out is not None else 0.0
 
+
     def get_last_access(self):
         return self._last_access
+
 
     def force_to_disk(self, removeMem=True):
         out = self._out
@@ -383,14 +405,17 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("free memory of {0}", self._cache_id_desc())
 
+
     def remove(self):
         self.force_to_disk()
+
 
     def __enter__(self):
         while not self._lock.acquire(True):
             pass
         self._start_time = get_time()
         return self
+
 
     def __exit__(self, _type, _value, _traceback):
         self._lock.release()
