@@ -31,7 +31,7 @@ if hasattr(time, "monotonic"):
 else:
     get_time = lambda: time.clock()
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 def _write_str(id_obj, elapsed, data):
