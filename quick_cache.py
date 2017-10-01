@@ -26,12 +26,27 @@ try:
 except ImportError:
     import pickle as cPickle
 
+try:
+    unicode = unicode
+except NameError:
+    # python 3
+    str = str
+    unicode = str
+    bytes = bytes
+    basestring = (str, bytes)
+else:
+    # python 2
+    str = str
+    unicode = unicode
+    bytes = str
+    basestring = basestring
+
 if hasattr(time, "monotonic"):
     get_time = lambda: time.monotonic()
 else:
     get_time = lambda: time.clock()
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 
 def _write_str(id_obj, elapsed, data):
