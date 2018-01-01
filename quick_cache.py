@@ -407,7 +407,12 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("writing cache to disk: {0}", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
-                f_out.write(out)
+                chunk_size = 10000
+                cur_chunk = 0
+                while cur_chunk < len(out):
+                    next_chunk = cur_chunk + chunk_size
+                    f_out.write(out[cur_chunk:next_chunk])
+                    cur_chunk = next_chunk
         except:
             # better remove everything written if an exception
             # occurs during I/O -- we don't want partial files
