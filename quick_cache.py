@@ -321,11 +321,11 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("reading {0} from disk", self._cache_id_desc())
             with open(self._cache_file, 'rb') as f_in:
-                chunk_size = 10000
+                chunk_size = 200 * 1024 * 1024
                 out = None
                 while True:
                     t_out = f_in.read(chunk_size)
-                    if not t_out:
+                    if not len(t_out):
                         break
                     if out is not None:
                         out += t_out
@@ -416,7 +416,7 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("writing cache to disk: {0}", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
-                chunk_size = 10000
+                chunk_size = 200 * 1024 * 1024
                 cur_chunk = 0
                 while cur_chunk < len(out):
                     next_chunk = cur_chunk + chunk_size
