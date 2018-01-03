@@ -321,7 +321,16 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("reading {0} from disk", self._cache_id_desc())
             with open(self._cache_file, 'rb') as f_in:
-                out = f_in.read()
+                chunk_size = 10000
+                out = None
+                while True:
+                    t_out = f_in.read(chunk_size)
+                    if not t_out:
+                        break
+                    if out is not None:
+                        out += t_out
+                    else:
+                        out = t_out
                 self._out = out
         (cache_id_obj, elapsed_time, res) = self._read(out)
         self.ensure_cache_id(cache_id_obj)
