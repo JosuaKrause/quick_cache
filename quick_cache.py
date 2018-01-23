@@ -46,7 +46,7 @@ if hasattr(time, "monotonic"):
 else:
     get_time = lambda: time.clock()
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 
 def _write_str(id_obj, elapsed, data):
@@ -61,6 +61,7 @@ def _read_str(txt):
     return id_obj, elapsed, rest[length:]
 
 
+CHUNK_SIZE = 1024 * 1024 * 1024
 methods = {
     "pickle": (
         lambda id_obj, elapsed, data: cPickle.dumps((id_obj, elapsed, data), -1),
@@ -321,10 +322,9 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("reading {0} from disk", self._cache_id_desc())
             with open(self._cache_file, 'rb') as f_in:
-                chunk_size = 200 * 1024 * 1024
                 out = None
                 while True:
-                    t_out = f_in.read(chunk_size)
+                    t_out = f_in.read(CHUNK_SIZE)
                     if not len(t_out):
                         break
                     if out is not None:
@@ -416,10 +416,9 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("writing cache to disk: {0}", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
-                chunk_size = 200 * 1024 * 1024
                 cur_chunk = 0
                 while cur_chunk < len(out):
-                    next_chunk = cur_chunk + chunk_size
+                    next_chunk = cur_chunk + CHUNK_SIZE
                     f_out.write(out[cur_chunk:next_chunk])
                     cur_chunk = next_chunk
         except:
