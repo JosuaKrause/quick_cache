@@ -54,7 +54,7 @@ else:
 
     get_time = _get_clock_time
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def _write_str(id_obj, elapsed, data):
