@@ -324,7 +324,7 @@ class _CacheLock(object):
             if isinstance(v, basestring):
                 return v
             if isinstance(v, dict):
-                return "{..{0}}".format(len(v.keys()))
+                return "{{..{0}}}".format(len(v.keys()))
             if isinstance(v, collections.Iterable):
                 return "[..{0}]".format(len(v))
             return str(v)
