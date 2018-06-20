@@ -42,20 +42,28 @@ else:
     basestring = basestring
 
 if hasattr(time, "monotonic"):
-    get_time = lambda: time.monotonic()
-else:
-    get_time = lambda: time.clock()
 
-__version__ = "0.2.6"
+    def _get_monotonic_time():
+        return time.monotonic()
+
+    get_time = _get_monotonic_time
+else:
+
+    def _get_clock_time():
+        return time.clock()
+
+    get_time = _get_clock_time
+
+__version__ = "0.3.0"
 
 
 def _write_str(id_obj, elapsed, data):
-    obj = json.dumps([ id_obj, elapsed ], sort_keys=True, allow_nan=True)
-    return str(len(obj)) + ';' + obj + data
+    obj = json.dumps([id_obj, elapsed], sort_keys=True, allow_nan=True)
+    return (str(len(obj)) + ';' + obj + data).encode('utf-8')
 
 
 def _read_str(txt):
-    len_ix, rest = txt.split(";", 1)
+    len_ix, rest = txt.decode('utf-8').split(";", 1)
     length = int(len_ix)
     id_obj, elapsed = json.loads(rest[:length])
     return id_obj, elapsed, rest[length:]
@@ -64,39 +72,45 @@ def _read_str(txt):
 CHUNK_SIZE = 1024 * 1024 * 1024
 methods = {
     "pickle": (
-        lambda id_obj, elapsed, data: cPickle.dumps((id_obj, elapsed, data), -1),
+        lambda id_obj, elapsed, data: cPickle.dumps(
+            (id_obj, elapsed, data), -1),
         lambda txt: cPickle.loads(txt),
     ),
     "json": (
-        lambda id_obj, elapsed, data: json.dumps([ id_obj, elapsed, data ], sort_keys=True, allow_nan=True),
+        lambda id_obj, elapsed, data: json.dumps(
+            [id_obj, elapsed, data], sort_keys=True, allow_nan=True),
         lambda txt: tuple(json.loads(txt)),
     ),
     "string": (_write_str, _read_str),
 }
+
+
 class QuickCache(object):
-    def __init__(self, base_file=None, base_string=None, quota=None, ram_quota=0, temp="tmp", warnings=None, method="pickle"):
+    def __init__(self, base_file=None, base_string=None, quota=None,
+                 ram_quota=0, temp="tmp", warnings=None, method="pickle"):
         """Creates a new cache. It is recommended to only use one cache object
            for all cache operations of a program.
 
         Parameters
         ----------
         base_file : filename (optional; default=None)
-            The data source file the caching is based on or None for a general cache.
-            Only one of base_file or base_string can be non-None.
+            The data source file the caching is based on or None for a general
+            cache. Only one of base_file or base_string can be non-None.
 
         base_string : string (optional; default=None)
-            The string the caching is based on (if the string changes so does the
-            cache) or None for a general cache.
+            The string the caching is based on (if the string changes so does
+            the cache) or None for a general cache.
             Only one of base_file or base_string can be non-None.
 
         quota : size (optional; default=None)
-            The maximum cache size in MB. Longest untouched files are removed first.
-            Files larger than quota are not written. Quota is base specific.
+            The maximum cache size in MB. Longest untouched files are removed
+            first. Files larger than quota are not written. Quota is base
+            specific.
 
         ram_quota : size (optional; default=0)
-            The maximum RAM cache size in MB. Longest unused caches are written to disk first.
-            Caches larger than the RAM quota are written to disk immediately if
-            disk quota allows.
+            The maximum RAM cache size in MB. Longest unused caches are written
+            to disk first. Caches larger than the RAM quota are written to disk
+            immediately if disk quota allows.
 
         temp : folder (optional; default="tmp")
             The folder to store the cache files.
@@ -127,7 +141,10 @@ class QuickCache(object):
         self._ram_quota = None if ram_quota is None else float(ram_quota)
         if base_file is not None:
             if base_string is not None:
-                raise ValueError("of base_file and base_string only one can be non-None: {0} {1}".format(base_file, base_string))
+                err_msg = "of base_file and base_string only one " + \
+                          "can be non-None: {0} {1}".format(
+                              base_file, base_string)
+                raise ValueError(err_msg)
             with open(base_file, 'rb') as f:
                 base = hashlib.sha1(f.read()).hexdigest()
             self._full_base = os.path.join(self._temp, base)
@@ -144,24 +161,27 @@ class QuickCache(object):
         self.verbose = False
         atexit.register(lambda: self.remove_all_locks())
 
-
     def clean_cache(self, section=None):
         """Cleans the cache of this cache object."""
         self.remove_all_locks()
         if section is not None and "/" in section:
             raise ValueError("invalid section '{0}'".format(section))
-        path = os.path.join(self._full_base, section) if section is not None else self._full_base
+        if section is not None:
+            path = os.path.join(self._full_base, section)
+        else:
+            path = self._full_base
         if not os.path.exists(path):
             return
         shutil.rmtree(path)
-
 
     def list_sections(self):
         """List all sections."""
         if not os.path.exists(self._full_base):
             return []
-        return [ name for name in os.listdir(self._full_base) if os.path.isdir(os.path.join(self._full_base, name)) ]
-
+        return [
+            name for name in os.listdir(self._full_base)
+            if os.path.isdir(os.path.join(self._full_base, name))
+        ]
 
     def get_file(self, cache_id_obj, section=None):
         """Returns the file path for the given cache object."""
@@ -173,8 +193,11 @@ class QuickCache(object):
                 str(k).encode('utf8') + b"=" + str(v).encode('utf8')
                 for k, v in cache_id_obj.items()
             ]))) & 0xffffffff)
-        return os.path.join(self._full_base, os.path.join(section, os.path.join("{0}".format(cache_id[:2]), "{0}.tmp".format(cache_id[2:]))))
-
+        return os.path.join(self._full_base,
+                            os.path.join(section,
+                                         os.path.join(
+                                             "{0}".format(cache_id[:2]),
+                                             "{0}.tmp".format(cache_id[2:]))))
 
     def _remove_lock(self, k):
         try:
@@ -183,10 +206,9 @@ class QuickCache(object):
         except KeyError:
             pass
 
-
     def enforce_ram_quota(self):
         locks = self._locks.values()
-        full_size = sum([ l.get_size() for l in locks ])
+        full_size = sum([l.get_size() for l in locks])
         ram_quota = self._ram_quota
         if full_size > ram_quota:
             locks.sort(key=lambda l: l.get_last_access())
@@ -198,18 +220,16 @@ class QuickCache(object):
                 if full_size <= ram_quota:
                     break
 
-
     def remove_all_locks(self):
         """Removes all locks and ensures their content is written to disk."""
         locks = list(self._locks.items())
         locks.sort(key=lambda l: l[1].get_last_access())
-        for (k, v) in locks:
-            self._remove_lock(k)
-
+        for l in locks:
+            self._remove_lock(l[0])
 
     def get_hnd(self, cache_id_obj, section=None, method=None):
-        """Gets a handle for the given cache file with exclusive access. The handle
-           is meant to be used in a resource block.
+        """Gets a handle for the given cache file with exclusive access.
+           The handle is meant to be used in a resource block.
 
         Parameters
         ----------
@@ -230,10 +250,16 @@ class QuickCache(object):
                 while not self._own.acquire(True):
                     pass
                 if cache_file not in self._locks:
-                    m = self._method if method is None else methods.get(method, None)
+                    if method is None:
+                        m = self._method
+                    else:
+                        m = methods.get(method, None)
                     if m is None:
-                        raise ValueError("unknown method: '{0}'".format(method))
-                    res = _CacheLock(cache_file, cache_id_obj, self._full_base, self._quota, self._ram_quota, self._warnings, self.verbose, m)
+                        raise ValueError(
+                            "unknown method: '{0}'".format(method))
+                    res = _CacheLock(cache_file, cache_id_obj, self._full_base,
+                                     self._quota, self._ram_quota,
+                                     self._warnings, self.verbose, m)
                     self._locks[cache_file] = res
                 else:
                     res = None
@@ -249,7 +275,8 @@ class QuickCache(object):
 
 
 class _CacheLock(object):
-    def __init__(self, cache_file, cache_id_obj, base, quota, ram_quota, warnings, verbose, method):
+    def __init__(self, cache_file, cache_id_obj, base, quota,
+                 ram_quota, warnings, verbose, method):
         """Creates a handle for the given cache file."""
         self._cache_file = cache_file
         self._lock = threading.RLock()
@@ -265,35 +292,31 @@ class _CacheLock(object):
         self._done = False
         self.verbose = verbose
 
-
     def _get_canonical_id(self, cache_id_obj):
         return self._read(self._write(cache_id_obj, 0, ""))[0]
-
 
     def ensure_cache_id(self, cache_id_obj):
         """Ensure the integrity of the cache id object."""
         cache_id = self._get_canonical_id(cache_id_obj)
         if cache_id != self._cache_id_obj:
-            raise ValueError("cache mismatch {0} != {1}".format(cache_id, self._cache_id_obj))
-
+            raise ValueError(
+                "cache mismatch {0} != {1}".format(
+                    cache_id, self._cache_id_obj))
 
     def name(self):
         """The cache file."""
         return self._cache_file
 
-
     def is_done(self):
-        """Conservatively determine whether this cache is ready and can safely be
-           removed from the lock index.
+        """Conservatively determine whether this cache is ready and can safely
+           be removed from the lock index.
         """
         return self._done or self._out is not None
-
 
     def has(self):
         """Whether the cache file exists in the file system."""
         self._done = os.path.exists(self._cache_file)
         return self._done or self._out is not None
-
 
     def _cache_id_desc(self):
 
@@ -306,15 +329,18 @@ class _CacheLock(object):
                 return "[..{0}]".format(len(v))
             return str(v)
 
-        return "[{0}]".format(", ".join([ "{0}={1}".format(k, convert(v)) for (k, v) in self._cache_id_obj.items() ]))
-
+        return "[{0}]".format(", ".join([
+            "{0}={1}".format(k, convert(v))
+            for (k, v) in self._cache_id_obj.items()
+        ]))
 
     def read(self):
         """Reads the cache file as pickle file."""
 
         def warn(msg, elapsed_time, current_time):
             desc = self._cache_id_desc()
-            self._warnings("{0} {1}: {2}s < {3}s", msg, desc, elapsed_time, current_time)
+            self._warnings(
+                "{0} {1}: {2}s < {3}s", msg, desc, elapsed_time, current_time)
 
         file_time = get_time()
         out = self._out
@@ -336,14 +362,15 @@ class _CacheLock(object):
         self.ensure_cache_id(cache_id_obj)
         real_time = get_time() - file_time
         if elapsed_time is not None and real_time > elapsed_time:
-            warn("reading cache from disk takes longer than computing!", elapsed_time, real_time)
+            warn("reading cache from disk takes longer than computing!",
+                 elapsed_time, real_time)
         elif self._start_time is not None and elapsed_time is not None:
             current_time = get_time() - self._start_time
             if elapsed_time < current_time:
-                warn("reading cache takes longer than computing!", elapsed_time, current_time)
+                warn("reading cache takes longer than computing!",
+                     elapsed_time, current_time)
         self._last_access = get_time()
         return res
-
 
     def write(self, obj):
         """Writes the given object to the cache file as pickle. The cache file with
@@ -351,21 +378,22 @@ class _CacheLock(object):
         """
         if self.verbose:
             self._warnings("cache miss for {0}", self._cache_id_desc())
-        out = self._write(self._cache_id_obj, (get_time() - self._start_time) if self._start_time is not None else None, obj)
+        if self._start_time is not None:
+            elapsed = get_time() - self._start_time
+        else:
+            elapsed = None
+        out = self._write(self._cache_id_obj, elapsed, obj)
         self._out = out
         self.force_to_disk(self.get_size() > self._ram_quota)
         self._last_access = get_time()
         return self._read(out)[2]
 
-
     def get_size(self):
         out = self._out
         return len(out) / 1024.0 / 1024.0 if out is not None else 0.0
 
-
     def get_last_access(self):
         return self._last_access
-
 
     def force_to_disk(self, removeMem=True):
         out = self._out
@@ -382,8 +410,9 @@ class _CacheLock(object):
         own_size = len(out) / 1024.0 / 1024.0
         quota = self._quota
         if quota is not None and own_size > quota:
-            self._warnings("single file exceeds quota: {0}MB > {1}MB", own_size, quota)
-            return # file exceeds quota
+            self._warnings(
+                "single file exceeds quota: {0}MB > {1}MB", own_size, quota)
+            return  # file exceeds quota
 
         def get_size(start_path):
             total_size = 0
@@ -405,8 +434,10 @@ class _CacheLock(object):
                         oldest_time = cur_time
                         oldest_fp = fp
             if oldest_fp is None:
-                self._warnings("cannot free enough space for quota ({0}MB > {1}MB)!", get_size(base) + own_size, quota)
-                return # cannot free enough space
+                self._warnings(
+                    "cannot free enough space for quota ({0}MB > {1}MB)!",
+                    get_size(base) + own_size, quota)
+                return  # cannot free enough space
             self._warnings("removing old cache file: {0}", oldest_fp)
             os.remove(oldest_fp)
 
@@ -414,7 +445,8 @@ class _CacheLock(object):
             os.makedirs(os.path.dirname(cache_file))
         try:
             if self.verbose:
-                self._warnings("writing cache to disk: {0}", self._cache_id_desc())
+                self._warnings(
+                    "writing cache to disk: {0}", self._cache_id_desc())
             with open(cache_file, 'wb') as f_out:
                 cur_chunk = 0
                 while cur_chunk < len(out):
@@ -433,17 +465,14 @@ class _CacheLock(object):
             if self.verbose:
                 self._warnings("free memory of {0}", self._cache_id_desc())
 
-
     def remove(self):
         self.force_to_disk()
-
 
     def __enter__(self):
         while not self._lock.acquire(True):
             pass
         self._start_time = get_time()
         return self
-
 
     def __exit__(self, _type, _value, _traceback):
         self._lock.release()
